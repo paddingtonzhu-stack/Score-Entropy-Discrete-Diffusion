@@ -5,16 +5,24 @@ import numpy as np
 import math
 
 from einops import rearrange
-from flash_attn.flash_attn_interface import flash_attn_varlen_qkvpacked_func
+
+try:
+    from flash_attn.flash_attn_interface import flash_attn_varlen_qkvpacked_func
+    FLASH_AVAILABLE = True
+except ImportError:
+    flash_attn_varlen_qkvpacked_func = None
+    FLASH_AVAILABLE = False
+FLASH_AVAILABLE = False
+
 # from flash_attn.ops.fused_dense import FusedMLP, FusedDense
 from huggingface_hub import PyTorchModelHubMixin
 from omegaconf import OmegaConf
 
 from . import rotary
 from .fused_add_dropout_scale import (
-    bias_dropout_add_scale_fused_train, 
-    bias_dropout_add_scale_fused_inference, 
-    get_bias_dropout_add_scale, 
+    bias_dropout_add_scale_fused_train,
+    bias_dropout_add_scale_fused_inference,
+    get_bias_dropout_add_scale,
     modulate_fused,
 )
 
@@ -108,7 +116,7 @@ class LabelEmbedder(nn.Module):
     def forward(self, labels):
         embeddings = self.embedding_table(labels)
         return embeddings
-    
+
 
 #################################################################################
 #                                 Core Model                                    #
@@ -135,7 +143,7 @@ class DDiTBlock(nn.Module):
         self.dropout2 = nn.Dropout(dropout)
 
         self.dropout = dropout
-        
+
 
         self.adaLN_modulation = nn.Linear(cond_dim, 6 * dim, bias=True)
         self.adaLN_modulation.weight.data.zero_()
@@ -177,10 +185,28 @@ class DDiTBlock(nn.Module):
             )
         else:
             cu_seqlens = seqlens.cumsum(-1)
-        x = flash_attn_varlen_qkvpacked_func(
-            qkv, cu_seqlens, seq_len, 0., causal=False)
-        
-        x = rearrange(x, '(b s) h d -> b s (h d)', b=batch_size)
+        if FLASH_AVAILABLE and flash_attn_varlen_qkvpacked_func is not None:
+            x = flash_attn_varlen_qkvpacked_func(
+                qkv, cu_seqlens, seq_len, 0., causal=False)
+        else:
+            # qkv is (b*s, 3, h, d) here
+            q, k, v = qkv.unbind(dim=1)  # each is (b*s, h, d)
+
+            # reshape to (b, s, h, d) then permute to (b, h, s, d)
+            q = q.view(batch_size, seq_len, self.n_heads, -1).transpose(1, 2)
+            k = k.view(batch_size, seq_len, self.n_heads, -1).transpose(1, 2)
+            v = v.view(batch_size, seq_len, self.n_heads, -1).transpose(1, 2)
+
+            # PyTorch SDPA expects (b, h, s, d)
+            x = F.scaled_dot_product_attention(q, k, v, dropout_p=0.0, is_causal=False)
+
+            # back to (b, s, h, d) so the existing rearrange below works
+            x = x.transpose(1, 2).contiguous()
+
+
+
+        x = rearrange(x, 'b s h d -> b s (h d)')
+
 
         x = bias_dropout_scale_fn(self.attn_out(x), None, gate_msa, x_skip, self.dropout)
 
@@ -193,7 +219,7 @@ class DDiTBlock(nn.Module):
 class EmbeddingLayer(nn.Module):
     def __init__(self, dim, vocab_dim):
         """
-        Mode arg: 0 -> use a learned layer, 1 -> use eigenvectors, 
+        Mode arg: 0 -> use a learned layer, 1 -> use eigenvectors,
         2-> add in eigenvectors, 3 -> use pretrained embedding matrix
         """
         super().__init__()
@@ -248,7 +274,7 @@ class SEDD(nn.Module, PyTorchModelHubMixin):
         self.output_layer = DDitFinalLayer(config.model.hidden_size, vocab_size, config.model.cond_dim)
         self.scale_by_sigma = config.model.scale_by_sigma
 
-    
+
     def _get_bias_dropout_scale(self):
         return (
             bias_dropout_add_scale_fused_train
@@ -275,7 +301,7 @@ class SEDD(nn.Module, PyTorchModelHubMixin):
             assert self.absorb, "Haven't configured this to work."
             esigm1_log = torch.where(sigma < 0.5, torch.expm1(sigma), sigma.exp() - 1).log().to(x.dtype)[:, None, None]
             x = x - esigm1_log - np.log(x.shape[-1] - 1)# this will be approximately averaged at 0
-            
+
         x = torch.scatter(x, -1, indices[..., None], torch.zeros_like(x[..., :1]))
 
         return x
