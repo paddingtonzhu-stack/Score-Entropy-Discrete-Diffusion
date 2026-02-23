@@ -49,4 +49,6 @@ def apply_rotary_pos_emb(qkv, cos, sin):
     #         qkv, cos, sin
     #     )
     # except:
+    cos = cos[0, :, 0, 0, :cos.shape[-1] // 2]
+    sin = sin[0, :, 0, 0, :sin.shape[-1] // 2]
     return _apply_rotary_pos_emb_torchscript(qkv, cos, sin)
