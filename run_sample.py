@@ -2,9 +2,10 @@ import torch
 import argparse
 
 from load_model import load_model
-from transformers import GPT2TokenizerFast
+from transformers import GPT2TokenizerFast # operate token ID
 import torch.nn.functional as F
 import sampling
+import pdb;
 
 
 def main():
@@ -17,15 +18,16 @@ def main():
 
     
     device = torch.device('cuda')
-    model, graph, noise = load_model(args.model_path, device)
+    model, graph, noise = load_model(args.model_path, device) # graph: adjacency matrix (transition matrix)
     tokenizer = GPT2TokenizerFast.from_pretrained('gpt2')
 
+    # the key function to sample from the model
     sampling_fn = sampling.get_pc_sampler(
         graph, noise, (args.batch_size, 1024), 'analytic', args.steps, device=device
     )
 
     samples = sampling_fn(model)
-
+    pdb.set_trace()
     text_samples = tokenizer.batch_decode(samples)
     for i in text_samples:
         print(i)
