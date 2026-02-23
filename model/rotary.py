@@ -29,14 +29,12 @@ class Rotary(torch.nn.Module):
 
 
 def rotate_half(x):
-    x1, x2 = x[..., : x.shape[-1] // 2], x[..., x.shape[-1] // 2 :]
-    return torch.cat(
-        (-x2, x1), dim=-1
-    )
+    d = x.size(-1)
+    x1, x2 = x[..., : d // 2], x[..., d // 2:]
+    return torch.cat((-x2, x1), dim=-1)
 
 
-@torch.jit.script
-def _apply_rotary_pos_emb_torchscript(qkv, cos, sin):
+def _apply_rotary_pos_emb(qkv, cos, sin):
     return (qkv * cos) + (rotate_half(qkv) * sin)
 
 
@@ -49,6 +47,6 @@ def apply_rotary_pos_emb(qkv, cos, sin):
     #         qkv, cos, sin
     #     )
     # except:
-    cos = cos[0, :, 0, 0, :cos.shape[-1] // 2]
-    sin = sin[0, :, 0, 0, :sin.shape[-1] // 2]
-    return _apply_rotary_pos_emb_torchscript(qkv, cos, sin)
+    # cos = cos[0, :, 0, 0, :cos.shape[-1] // 2]
+    # sin = sin[0, :, 0, 0, :sin.shape[-1] // 2]
+    return _apply_rotary_pos_emb(qkv, cos, sin)
