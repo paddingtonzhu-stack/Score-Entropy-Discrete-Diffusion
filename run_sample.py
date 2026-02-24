@@ -5,7 +5,7 @@ from load_model import load_model
 from transformers import GPT2TokenizerFast # operate token ID
 import torch.nn.functional as F
 import sampling
-import pdb;
+import pdb
 
 
 def main():
@@ -27,7 +27,7 @@ def main():
     )
 
     samples = sampling_fn(model)
-    pdb.set_trace()
+
     text_samples = tokenizer.batch_decode(samples)
     for i in text_samples:
         print(i)

@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import math
-
+import pdb
 from einops import rearrange
 
 try:
@@ -260,7 +260,7 @@ class SEDD(nn.Module, PyTorchModelHubMixin):
 
         self.config = config
 
-        self.absorb = config.graph.type == "absorb"
+        self.absorb = config.graph.type == "absorb" ### make training process faster
         vocab_size = config.tokens + (1 if self.absorb else 0)
 
         self.vocab_embed = EmbeddingLayer(config.model.hidden_size, vocab_size)
@@ -273,6 +273,7 @@ class SEDD(nn.Module, PyTorchModelHubMixin):
 
         self.output_layer = DDitFinalLayer(config.model.hidden_size, vocab_size, config.model.cond_dim)
         self.scale_by_sigma = config.model.scale_by_sigma
+        pdb.set_trace()
 
 
     def _get_bias_dropout_scale(self):
