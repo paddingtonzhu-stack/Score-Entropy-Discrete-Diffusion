@@ -137,7 +137,7 @@ class DDiTBlock(nn.Module):
         self.norm2 = LayerNorm(dim)
         self.mlp = nn.Sequential(
             nn.Linear(dim, mlp_ratio * dim, bias=True),
-            nn.GELU(approximate="tanh"),
+            nn.GELU(approximate="tanh"), # x * phi(x)
             nn.Linear(mlp_ratio * dim, dim, bias=True)
         )
         self.dropout2 = nn.Dropout(dropout)
@@ -163,6 +163,7 @@ class DDiTBlock(nn.Module):
 
         bias_dropout_scale_fn = self._get_bias_dropout_scale()
 
+        # transformer modulation
         shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = self.adaLN_modulation(c)[:, None].chunk(6, dim=2)
 
         # attention operation
@@ -271,9 +272,10 @@ class SEDD(nn.Module, PyTorchModelHubMixin):
             DDiTBlock(config.model.hidden_size, config.model.n_heads, config.model.cond_dim, dropout=config.model.dropout) for _ in range(config.model.n_blocks)
         ])
 
+        # 768 dim, 12 layers
         self.output_layer = DDitFinalLayer(config.model.hidden_size, vocab_size, config.model.cond_dim)
         self.scale_by_sigma = config.model.scale_by_sigma
-        pdb.set_trace()
+        #pdb.set_trace()
 
 
     def _get_bias_dropout_scale(self):

@@ -193,6 +193,7 @@ class Absorbing(Graph):
     def __init__(self, dim):
         super().__init__()
         self._dim = dim
+        print(f"Absorbing graph with {dim} tokens")
 
     @property
     def dim(self):
