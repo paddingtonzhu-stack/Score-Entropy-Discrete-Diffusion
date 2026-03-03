@@ -45,7 +45,7 @@ def get_score_fn(model, train=False, sampling=False):
         def score_fn(x, sigma):
             print("score_fn: x shape, sigma shape:")
             print(x.shape, sigma.shape)
-            sigma = sigma.reshape(-1) # sigma.size1 * size 2
+            sigma = sigma.reshape(-1) # sigma.size1 * size 2 [1, 1] one sigma for each time step of each batch
             score = model_fn(x, sigma)
             
             if sampling:
