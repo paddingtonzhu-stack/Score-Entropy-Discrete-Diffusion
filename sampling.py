@@ -204,6 +204,6 @@ def get_pc_sampler_test(tokenizer, graph, noise, batch_dims, predictor, steps, d
 
         return x
 
-    return pc_sampler
+    return pc_sampler_debug
 
 
