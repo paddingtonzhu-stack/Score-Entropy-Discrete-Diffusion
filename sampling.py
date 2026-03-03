@@ -81,8 +81,8 @@ class AnalyticPredictor(Predictor):
 
         score = score_fn(x, curr_sigma)
 
-        stag_score = self.graph.staggered_score(score, dsigma)
-        probs = stag_score * self.graph.transp_transition(x, dsigma)
+        stag_score = self.graph.staggered_score(score, dsigma) ## p/q ?
+        probs = stag_score * self.graph.transp_transition(x, dsigma) ## Q ?
         return sample_categorical(probs)
 
     
@@ -137,6 +137,7 @@ def get_pc_sampler(graph, noise, batch_dims, predictor, steps, denoise=True, eps
             x = predictor.update_fn(sampling_score_fn, x, t, dt)
             
 
+        # still has noise, to get X0, denoise
         if denoise:
             # denoising step
             x = projector(x)
@@ -146,4 +147,63 @@ def get_pc_sampler(graph, noise, batch_dims, predictor, steps, denoise=True, eps
         return x
     
     return pc_sampler
+
+
+def get_pc_sampler_test(tokenizer, graph, noise, batch_dims, predictor, steps, denoise=True, eps=1e-5, device=torch.device('cpu'),
+                   proj_fun=lambda x: x):
+    predictor = get_predictor(predictor)(graph, noise)
+    projector = proj_fun
+    denoiser = Denoiser(graph, noise)
+
+    @torch.no_grad()
+    def pc_sampler_debug(model):
+
+        sampling_score_fn = mutils.get_score_fn(model, train=False, sampling=True)
+        x = graph.sample_limit(*batch_dims).to(device)
+
+        timesteps = torch.linspace(1, eps, steps + 1, device=device)
+        dt = (1 - eps) / steps
+
+        prev_x = x.clone()
+
+        for i in range(steps):
+            t = timesteps[i] * torch.ones(x.shape[0], 1, device=device)
+
+            x = predictor.update_fn(sampling_score_fn, x, t, dt)
+
+            # Print every 20 steps
+            if i % 20 == 0:
+                print(f"\n==== Step {i} ====")
+
+                # Show first sequence only
+                tokens = x[0].tolist()
+                print("Token IDs:", tokens[:50])
+
+                # Decode
+                try:
+                    decoded = tokenizer.decode(tokens)
+                    print("Decoded text:\n", decoded)
+                except:
+                    print("Tokenizer decode failed.")
+
+                # Show which tokens changed
+                changed = (x != prev_x)
+                changed_positions = changed[0].nonzero(as_tuple=True)[0]
+                print("Changed positions:", changed_positions.tolist())
+
+            prev_x = x.clone()
+
+        # Final denoise
+        if denoise:
+            t = timesteps[-1] * torch.ones(x.shape[0], 1, device=device)
+            x = denoiser.update_fn(sampling_score_fn, x, t)
+
+            print("\n==== Final Denoised Output ====")
+            tokens = x[0].tolist()
+            print(tokenizer.decode(tokens))
+
+        return x
+
+    return pc_sampler
+
 

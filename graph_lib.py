@@ -192,7 +192,7 @@ class Uniform(Graph):
 class Absorbing(Graph):
     def __init__(self, dim):
         super().__init__()
-        self._dim = dim
+        self._dim = dim # 50257
         print(f"Absorbing graph with {dim} tokens")
 
     @property

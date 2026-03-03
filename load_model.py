@@ -9,7 +9,7 @@ import noise_lib
 from omegaconf import OmegaConf
 
 def load_model_hf(dir, device):
-    score_model = SEDD.from_pretrained(dir).to(device)
+    score_model = SEDD.from_pretrained(dir).to(device) # what is exactly the model?
     graph = graph_lib.get_graph(score_model.config, device)
     noise = noise_lib.get_noise(score_model.config).to(device)
     return score_model, graph, noise

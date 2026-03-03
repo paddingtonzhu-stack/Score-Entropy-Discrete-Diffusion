@@ -22,7 +22,7 @@ def main():
     tokenizer = GPT2TokenizerFast.from_pretrained('gpt2')
 
     # the key function to sample from the model
-    sampling_fn = sampling.get_pc_sampler(
+    sampling_fn = sampling.get_pc_sampler_test(tokenizer,
         graph, noise, (args.batch_size, 1024), 'analytic', args.steps, device=device
     )
 
