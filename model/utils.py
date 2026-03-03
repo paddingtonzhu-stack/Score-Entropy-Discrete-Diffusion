@@ -39,11 +39,13 @@ def get_model_fn(model, train=False):
 def get_score_fn(model, train=False, sampling=False):
     if sampling:
         assert not train, "Must sample in eval mode"
-    model_fn = get_model_fn(model, train=train)
+    model_fn = get_model_fn(model, train=train) # model.eval()
 
     with torch.cuda.amp.autocast(dtype=torch.bfloat16):
         def score_fn(x, sigma):
-            sigma = sigma.reshape(-1)
+            print("score_fn: x shape, sigma shape:")
+            print(x.shape, sigma.shape)
+            sigma = sigma.reshape(-1) # sigma.size1 * size 2
             score = model_fn(x, sigma)
             
             if sampling:
