@@ -82,9 +82,15 @@ class AnalyticPredictor(Predictor):
         score = score_fn(x, curr_sigma)
         print("score:")
         print(score.shape)
-        print(score[0, 0, :])
+        #score:
+        #torch.Size([1, 1024, 50258])
+        #print(score[0, 0, :])
         stag_score = self.graph.staggered_score(score, dsigma) ## p/q ?
+        print("stag_score:")
+        print(stag_score.shape)
         probs = stag_score * self.graph.transp_transition(x, dsigma) ## Q ?
+        print("probs:")
+        print(probs.shape)
         return sample_categorical(probs)
 
     
@@ -162,7 +168,7 @@ def get_pc_sampler_test(tokenizer, graph, noise, batch_dims, predictor, steps, d
 
         sampling_score_fn = mutils.get_score_fn(model, train=False, sampling=True)
         x = graph.sample_limit(*batch_dims).to(device) ## the initial state: all absorbing
-
+        # x shape: 1, 1024
         timesteps = torch.linspace(1, eps, steps + 1, device=device)
         dt = (1 - eps) / steps
 
